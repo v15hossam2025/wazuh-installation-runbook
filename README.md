@@ -4,7 +4,11 @@ A practical security engineering runbook for deploying Wazuh SIEM and onboarding
 
 ## 🌐 Live Interactive Runbook
 
-> The interactive HTML version of this project can be published through GitHub Pages.
+[Open the Interactive Wazuh Runbook](https://v15hossam2025.github.io/wazuh-installation-runbook/)
+
+## 📂 Repository
+
+[View the Source Code](https://github.com/v15hossam2025/wazuh-installation-runbook)
 
 ## Overview
 
