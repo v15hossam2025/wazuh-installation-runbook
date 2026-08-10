@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Wazuh Installation & Agent Enrollment Runbook — Reference Environment</title>
+<style>
+  :root{
+    --navy:#1F3864; --steel:#2E5090; --bg:#F7F9FC; --panel:#FFFFFF;
+    --code-bg:#1E1E1E; --code-fg:#D4D4D4; --code-comment:#6A9955;
+    --border:#E2E8F0; --amber:#BF8F00; --amber-bg:#FFF6E5;
+    --text:#1A2233; --muted:#5B6472;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:"Segoe UI", Calibri, Arial, sans-serif; line-height:1.6;
+  }
+  .wrap{max-width:900px; margin:0 auto; padding:32px 24px 100px;}
+  header.cover{
+    text-align:center; padding:56px 20px 40px; border-bottom:3px solid var(--navy); margin-bottom:36px;
+  }
+  header.cover h1{
+    color:var(--navy); font-size:2.4rem; letter-spacing:2px; margin:0 0 8px;
+  }
+  header.cover h2{ color:var(--steel); font-size:1.3rem; margin:0 0 14px; font-weight:600;}
+  header.cover p{ color:var(--muted); margin:4px 0; font-size:0.95rem;}
+  nav.toc{
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    padding:18px 22px; margin-bottom:40px;
+  }
+  nav.toc h3{margin-top:0; color:var(--navy);}
+  nav.toc ol{margin:0; padding-left:20px;}
+  nav.toc a{color:var(--steel); text-decoration:none;}
+  nav.toc a:hover{text-decoration:underline;}
+  section{margin-bottom:44px;}
+  h1.sec{
+    color:var(--navy); font-size:1.5rem; border-bottom:2px solid var(--navy);
+    padding-bottom:8px; margin-bottom:16px;
+  }
+  h2.sub{color:var(--steel); font-size:1.15rem; margin:26px 0 10px;}
+  p{color:var(--text);}
+  ul{padding-left:22px;}
+  li{margin-bottom:6px;}
+  table{width:100%; border-collapse:collapse; margin:14px 0 22px; font-size:0.9rem;}
+  th, td{border:1px solid var(--border); padding:8px 10px; text-align:left;}
+  th{background:var(--navy); color:#fff;}
+  tr:nth-child(even) td{background:#F2F5FA;}
+  .note{
+    background:var(--amber-bg); border-left:4px solid var(--amber); padding:10px 14px;
+    margin:14px 0; font-size:0.9rem; color:#5B4A00; border-radius:4px;
+  }
+  .note b{color:var(--amber);}
+  .code-block{
+    position:relative; background:var(--code-bg); border-radius:8px; margin:10px 0 20px;
+    overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.15);
+  }
+  .code-block pre{
+    margin:0; padding:16px 46px 16px 16px; color:var(--code-fg);
+    font-family:"Consolas","SFMono-Regular",Menlo,monospace; font-size:0.85rem;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .code-block .cmt{color:var(--code-comment);}
+  .copy-btn{
+    position:absolute; top:8px; right:8px; background:var(--steel); color:#fff;
+    border:none; border-radius:5px; padding:6px 10px; font-size:0.75rem; cursor:pointer;
+    display:flex; align-items:center; gap:5px; transition:background 0.15s ease;
+  }
+  .copy-btn:hover{background:var(--navy);}
+  .copy-btn.copied{background:#2E7D32;}
+  .copy-btn svg{width:13px; height:13px; fill:#fff;}
+  .step-label{color:var(--steel); font-weight:600; font-size:0.85rem; margin:0 0 -4px;}
+  footer{text-align:center; color:var(--muted); font-size:0.8rem; margin-top:60px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="cover">
+  <h1>WAZUH SIEM</h1>
+  <h2>Installation &amp; Agent Enrollment Runbook</h2>
+  <p>On-Premises Deployment Guide — Reference Environment</p>
+  <p>Target platform: Ubuntu Server (Wazuh Manager, Indexer &amp; Dashboard — All-in-One)</p>
+  <p>Wazuh version: 4.14.x &nbsp;|&nbsp; Document Version: 1.1 &nbsp;|&nbsp; Date: July 2026</p>
+</header>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#prereq">Prerequisites</a></li>
+    <li><a href="#prep">Server Preparation</a></li>
+    <li><a href="#install">Install Wazuh Manager, Indexer &amp; Dashboard</a></li>
+    <li><a href="#agents">Agent Enrollment</a></li>
+    <li><a href="#sysmon">Sysmon Installation &amp; Integration</a></li>
+    <li><a href="#syslog">Agentless Devices — Syslog Forwarding</a></li>
+    <li><a href="#checklist">Post-Installation Checklist</a></li>
+  </ol>
+</nav>
+
+<section id="usage">
+  <h1 class="sec">How to Use This Runbook</h1>
+  <p>Every command block below has a <b>Copy</b> button in the top-right corner — click it to copy that block straight to your clipboard, then paste into your terminal or PowerShell session on the client's machine. This works fully offline; no internet connection is required to use this page.</p>
+  <ul>
+    <li>Replace any placeholder in angle brackets, e.g. <code>&lt;manager-ip&gt;</code>, with the actual value for the client's environment before running.</li>
+    <li>Run steps in order — later steps assume earlier ones completed successfully.</li>
+    <li>Commands prefixed with <code>sudo</code> require root/administrator privileges.</li>
+  </ul>
+</section>
+
+<section id="prereq">
+  <h1 class="sec">1. Prerequisites</h1>
+  <h2 class="sub">1.1 Server Requirements</h2>
+  <table>
+    <tr><th>Requirement</th><th>Minimum</th><th>Recommended (this environment)</th></tr>
+    <tr><td>OS</td><td>Ubuntu 22.04 / 24.04 LTS</td><td>Ubuntu 24.04 LTS</td></tr>
+    <tr><td>CPU</td><td>4 vCPU</td><td>8 vCPU</td></tr>
+    <tr><td>RAM</td><td>8 GB</td><td>16 GB (9 Windows+Sysmon hosts increase event volume)</td></tr>
+    <tr><td>Disk</td><td>50 GB SSD</td><td>200+ GB SSD</td></tr>
+    <tr><td>Network</td><td>Static internal IP reachable from all asset segments</td><td>Same</td></tr>
+  </table>
+  <h2 class="sub">1.2 Required Firewall Ports</h2>
+  <table>
+    <tr><th>Port</th><th>Protocol</th><th>Purpose</th><th>Direction</th></tr>
+    <tr><td>1514</td><td>TCP</td><td>Agent → Manager event data</td><td>Inbound to manager</td></tr>
+    <tr><td>1515</td><td>TCP</td><td>Agent enrollment</td><td>Inbound to manager</td></tr>
+    <tr><td>1516</td><td>TCP</td><td>Cluster daemon (future multi-node)</td><td>Inbound to manager</td></tr>
+    <tr><td>55000</td><td>TCP</td><td>Wazuh API</td><td>Inbound to manager</td></tr>
+    <tr><td>9200</td><td>TCP</td><td>Indexer API (internal only)</td><td>Local / mgmt segment only</td></tr>
+    <tr><td>443</td><td>TCP</td><td>Dashboard HTTPS</td><td>Inbound to manager</td></tr>
+    <tr><td>514</td><td>UDP</td><td>Syslog (WAF, VPN gateway)</td><td>Inbound to manager</td></tr>
+  </table>
+  <div class="note"><b>Note:</b> Confirm with the client's network team that routing/firewall rules permit these ports between the Wazuh server segment and every asset segment (including the WAF management segment and VPN gateway segment) before starting installation.</div>
+</section>
+
+<section id="prep">
+  <h1 class="sec">2. Server Preparation</h1>
+  <h2 class="sub">2.1 Update the System &amp; Install Dependencies</h2>
+  <div class="code-block" data-code="sudo apt update && sudo apt upgrade -y
+sudo apt install -y curl apt-transport-https unzip wget libcap2-bin jq"><pre>sudo apt update &amp;&amp; sudo apt upgrade -y
+sudo apt install -y curl apt-transport-https unzip wget libcap2-bin jq</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">2.2 Apply Kernel Tuning (required for the Wazuh Indexer)</h2>
+  <div class="code-block" data-code="cat << 'EOF' | sudo tee /etc/sysctl.d/99-wazuh.conf
+vm.max_map_count=262144
+net.core.somaxconn=65535
+net.ipv4.tcp_max_syn_backlog=65535
+EOF
+sudo sysctl --system"><pre>cat &lt;&lt; 'EOF' | sudo tee /etc/sysctl.d/99-wazuh.conf
+vm.max_map_count=262144
+net.core.somaxconn=65535
+net.ipv4.tcp_max_syn_backlog=65535
+EOF
+sudo sysctl --system</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">2.3 Open Required Firewall Ports (UFW)</h2>
+  <div class="code-block" data-code="sudo ufw allow 1514/tcp
+sudo ufw allow 1515/tcp
+sudo ufw allow 1516/tcp
+sudo ufw allow 55000/tcp
+sudo ufw allow 9200/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 514/udp
+sudo ufw enable"><pre>sudo ufw allow 1514/tcp
+sudo ufw allow 1515/tcp
+sudo ufw allow 1516/tcp
+sudo ufw allow 55000/tcp
+sudo ufw allow 9200/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 514/udp
+sudo ufw enable</pre><button class="copy-btn">Copy</button></div>
+</section>
+
+<section id="install">
+  <h1 class="sec">3. Install Wazuh Manager, Indexer &amp; Dashboard</h1>
+  <p>The official installation assistant deploys all three central components on this single Ubuntu server in one pass.</p>
+
+  <h2 class="sub">3.1 Download the Installer</h2>
+  <div class="code-block" data-code="cd /root
+curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh
+curl -sO https://packages.wazuh.com/4.14/config.yml"><pre>cd /root
+curl -sO https://packages.wazuh.com/4.14/wazuh-install.sh
+curl -sO https://packages.wazuh.com/4.14/config.yml</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">3.2 Run the All-in-One Installer</h2>
+  <div class="code-block" data-code="sudo bash wazuh-install.sh -a"><pre>sudo bash wazuh-install.sh -a</pre><button class="copy-btn">Copy</button></div>
+  <div class="note"><b>Note:</b> This takes 10-15 minutes. At the end it prints the dashboard URL and a one-time admin password — copy it immediately, it is not shown again on screen.</div>
+
+  <h2 class="sub">3.3 Retrieve the Admin Password (if missed)</h2>
+  <div class="code-block" data-code="sudo tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt"><pre>sudo tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">3.4 Change the Default Admin Password</h2>
+  <div class="code-block" data-code="sudo /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh \
+  -u admin -p 'ReplaceWithAStrongPassword!2026'"><pre>sudo /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh \
+  -u admin -p 'ReplaceWithAStrongPassword!2026'</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">3.5 Verify All Services Are Running</h2>
+  <div class="code-block" data-code="sudo systemctl status wazuh-manager
+sudo systemctl status wazuh-indexer
+sudo systemctl status wazuh-dashboard
+sudo systemctl status filebeat"><pre>sudo systemctl status wazuh-manager
+sudo systemctl status wazuh-indexer
+sudo systemctl status wazuh-dashboard
+sudo systemctl status filebeat</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">3.6 Access the Dashboard</h2>
+  <div class="code-block" data-code="https://<wazuh-server-ip>
+# Login: admin
+# Password: <the password set in step 3.4>"><pre>https://&lt;wazuh-server-ip&gt;
+<span class="cmt"># Login: admin</span>
+<span class="cmt"># Password: &lt;the password set in step 3.4&gt;</span></pre><button class="copy-btn">Copy</button></div>
+</section>
+
+<section id="agents">
+  <h1 class="sec">4. Agent Enrollment — Forward Asset Logs to the Manager</h1>
+  <p>Run the relevant block below on each in-scope asset. Replace <code>&lt;manager-ip&gt;</code> with the Wazuh server's IP address in every command.</p>
+
+  <h2 class="sub">4.1 Ubuntu / Debian Servers</h2>
+  <p>Applies to all Ubuntu-based assets (application servers, ERP, object storage, container hosts, backup server, Zabbix host, etc.)</p>
+  <div class="code-block" data-code="curl -so wazuh-agent.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.14.0-1_amd64.deb
+sudo WAZUH_MANAGER='<manager-ip>' dpkg -i ./wazuh-agent.deb
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent"><pre>curl -so wazuh-agent.deb https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_4.14.0-1_amd64.deb
+sudo WAZUH_MANAGER='&lt;manager-ip&gt;' dpkg -i ./wazuh-agent.deb
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">4.2 RHEL / Oracle Linux Servers</h2>
+  <p>Applies to RHEL 7, RHEL 9, and Oracle Linux assets (core banking app, core DB, reverse proxy, ticketing system, etc.)</p>
+  <div class="code-block" data-code="curl -o wazuh-agent.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.14.0-1.x86_64.rpm
+sudo WAZUH_MANAGER='<manager-ip>' rpm -ihv wazuh-agent.rpm
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent"><pre>curl -o wazuh-agent.rpm https://packages.wazuh.com/4.x/yum/wazuh-agent-4.14.0-1.x86_64.rpm
+sudo WAZUH_MANAGER='&lt;manager-ip&gt;' rpm -ihv wazuh-agent.rpm
+sudo systemctl daemon-reload
+sudo systemctl enable wazuh-agent
+sudo systemctl start wazuh-agent</pre><button class="copy-btn">Copy</button></div>
+  <div class="note"><b>Note:</b> RHEL 7 is past its standard support window — confirm Extended Life Cycle Support coverage with the client, and flag these hosts for OS upgrade planning separately from this Wazuh rollout.</div>
+
+  <h2 class="sub">4.3 Windows Server Hosts</h2>
+  <p>Applies to database servers, IIS/web servers, the domain controller, and other Windows Server 2022 assets. Run in an elevated PowerShell prompt.</p>
+  <div class="code-block" data-code="Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.0-1.msi -OutFile $env:tmp\wazuh-agent.msi
+msiexec.exe /i $env:tmp\wazuh-agent.msi /q WAZUH_MANAGER='<manager-ip>'
+NET START WazuhSvc"><pre>Invoke-WebRequest -Uri https://packages.wazuh.com/4.x/windows/wazuh-agent-4.14.0-1.msi -OutFile $env:tmp\wazuh-agent.msi
+msiexec.exe /i $env:tmp\wazuh-agent.msi /q WAZUH_MANAGER='&lt;manager-ip&gt;'
+NET START WazuhSvc</pre><button class="copy-btn">Copy</button></div>
+  <div class="note"><b>Note:</b> Deploy Sysmon separately on these hosts (Section 5) so richer process, registry, and network telemetry feeds into the same agent. Prioritize DC01 (domain controller) and both database servers.</div>
+
+  <h2 class="sub">4.4 Verify Agent Connectivity (run on the manager)</h2>
+  <div class="code-block" data-code="sudo /var/ossec/bin/agent_control -l"><pre>sudo /var/ossec/bin/agent_control -l</pre><button class="copy-btn">Copy</button></div>
+  <p>Each enrolled asset should show status <b>Active</b> within 1-2 minutes of the agent service starting. This can also be confirmed visually under <b>Agents</b> in the Wazuh dashboard.</p>
+</section>
+
+<section id="sysmon">
+  <h1 class="sec">5. Sysmon Installation &amp; Integration (Windows Hosts)</h1>
+  <p>Sysmon logs detailed process creation, network connection, file, and registry activity to the Windows Event Log. Wazuh reads this log channel directly, giving far richer detection value than the default Windows Event Log alone. Install on every Windows Server 2022 asset from Section 4.3 — especially DC01 and both database servers.</p>
+
+  <h2 class="sub">5.1 Download Sysmon and a Community Configuration</h2>
+  <p>Run in an elevated PowerShell prompt. This uses the widely-used SwiftOnSecurity baseline configuration.</p>
+  <div class="code-block" data-code="Invoke-WebRequest -Uri https://download.sysinternals.com/files/Sysmon.zip -OutFile $env:tmp\Sysmon.zip
+Expand-Archive -Path $env:tmp\Sysmon.zip -DestinationPath $env:tmp\Sysmon -Force
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml -OutFile $env:tmp\sysmonconfig.xml"><pre>Invoke-WebRequest -Uri https://download.sysinternals.com/files/Sysmon.zip -OutFile $env:tmp\Sysmon.zip
+Expand-Archive -Path $env:tmp\Sysmon.zip -DestinationPath $env:tmp\Sysmon -Force
+Invoke-WebRequest -Uri https://raw.githubusercontent.com/SwiftOnSecurity/sysmon-config/master/sysmonconfig-export.xml -OutFile $env:tmp\sysmonconfig.xml</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">5.2 Install Sysmon with the Configuration</h2>
+  <div class="code-block" data-code="cd $env:tmp\Sysmon
+.\Sysmon64.exe -accepteula -i $env:tmp\sysmonconfig.xml"><pre>cd $env:tmp\Sysmon
+.\Sysmon64.exe -accepteula -i $env:tmp\sysmonconfig.xml</pre><button class="copy-btn">Copy</button></div>
+  <div class="note"><b>Note:</b> On a system that already has Sysmon installed, use <code>-c</code> instead of <code>-i</code> to update the configuration without reinstalling.</div>
+
+  <h2 class="sub">5.3 Verify Sysmon Is Running</h2>
+  <div class="code-block" data-code="Get-Service Sysmon64
+Get-WinEvent -LogName 'Microsoft-Windows-Sysmon/Operational' -MaxEvents 5"><pre>Get-Service Sysmon64
+Get-WinEvent -LogName 'Microsoft-Windows-Sysmon/Operational' -MaxEvents 5</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">5.4 Point the Wazuh Agent at the Sysmon Log Channel</h2>
+  <p>Edit the Wazuh agent configuration file on the Windows host:</p>
+  <div class="code-block" data-code="C:\Program Files (x86)\ossec-agent\ossec.conf"><pre>C:\Program Files (x86)\ossec-agent\ossec.conf</pre><button class="copy-btn">Copy</button></div>
+  <p>Add the following block inside <code>&lt;ossec_config&gt;</code>, alongside any existing <code>&lt;localfile&gt;</code> entries:</p>
+  <div class="code-block" data-code="<localfile>
+  <location>Microsoft-Windows-Sysmon/Operational</location>
+  <log_format>eventchannel</log_format>
+</localfile>"><pre>&lt;localfile&gt;
+  &lt;location&gt;Microsoft-Windows-Sysmon/Operational&lt;/location&gt;
+  &lt;log_format&gt;eventchannel&lt;/log_format&gt;
+&lt;/localfile&gt;</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">5.5 Restart the Wazuh Agent to Apply the Change</h2>
+  <div class="code-block" data-code="Restart-Service -Name WazuhSvc"><pre>Restart-Service -Name WazuhSvc</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">5.6 Confirm Sysmon Events Are Reaching the Manager</h2>
+  <p>Wazuh ships built-in decoders and rules for Sysmon (rule group <code>sysmon</code>) enabled by default — no custom ruleset needed. On the manager:</p>
+  <div class="code-block" data-code="sudo tail -f /var/ossec/logs/alerts/alerts.log | grep -i sysmon"><pre>sudo tail -f /var/ossec/logs/alerts/alerts.log | grep -i sysmon</pre><button class="copy-btn">Copy</button></div>
+  <p>Or in the dashboard: filter <b>Agents</b> by the Windows hostname and confirm events with <code>rule.groups</code> containing <code>sysmon</code> are arriving.</p>
+
+  <h2 class="sub">5.7 Recommended Sysmon Priorities for This Environment</h2>
+  <ul>
+    <li><b>DC01.example.local</b> — process creation and network connection events are the highest-value signal, since this host is the identity backbone.</li>
+    <li><b>DB-Server-01 / DB-Server-02</b> — watch for unexpected process creation under the SQL Server service account, and unusual outbound connections.</li>
+    <li><b>IIS hosts</b> (Web-Portal-01, Web-Services-01, Web-Staging-01) — watch for child processes spawned by <code>w3wp.exe</code>, a common web-shell indicator.</li>
+    <li>Revisit the config after 2 weeks of data and tune out noisy events before enabling active response tied to Sysmon-sourced rules.</li>
+  </ul>
+</section>
+
+<section id="syslog">
+  <h1 class="sec">6. Agentless Devices — Syslog Forwarding</h1>
+  <p>The F5 BIG-IP WAF pair and the FreeBSD OpenVPN gateway cannot run a native Wazuh agent. These forward logs via syslog instead. This section covers both sides: the manager-side listener, and the configuration required on each agentless device itself.</p>
+
+  <h2 class="sub">6.1 Configure the Manager to Accept Syslog</h2>
+  <p>Add the following block inside <code>&lt;ossec_config&gt;</code> in <code>/var/ossec/etc/ossec.conf</code>:</p>
+  <div class="code-block" data-code="<ossec_config>
+  <remote>
+    <connection>syslog</connection>
+    <port>514</port>
+    <protocol>udp</protocol>
+    <allowed-ips><device-ip-1>,<device-ip-2>,<device-ip-3></allowed-ips>
+  </remote>
+</ossec_config>"><pre>&lt;ossec_config&gt;
+  &lt;remote&gt;
+    &lt;connection&gt;syslog&lt;/connection&gt;
+    &lt;port&gt;514&lt;/port&gt;
+    &lt;protocol&gt;udp&lt;/protocol&gt;
+    &lt;allowed-ips&gt;<device-ip-1>,<device-ip-2>,<device-ip-3>&lt;/allowed-ips&gt;
+  &lt;/remote&gt;
+&lt;/ossec_config&gt;</pre><button class="copy-btn">Copy</button></div>
+
+  <div class="code-block" data-code="sudo systemctl restart wazuh-manager"><pre>sudo systemctl restart wazuh-manager</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">6.2 F5 BIG-IP WAF — Device-Side Configuration (Both Nodes)</h2>
+  <p>System-level syslog (via TMSH):</p>
+  <div class="code-block" data-code="tmsh modify sys syslog remote-servers add { wazuh-manager { host <manager-ip> remote-port 514 } }
+tmsh save sys config"><pre>tmsh modify sys syslog remote-servers add { wazuh-manager { host &lt;manager-ip&gt; remote-port 514 } }
+tmsh save sys config</pre><button class="copy-btn">Copy</button></div>
+  <p>ASM/WAF violation logging requires its own logging profile — system syslog does not include security policy violations automatically:</p>
+  <ul>
+    <li>Security → Event Logs → Logging Profiles → Create new profile, Type: Application Security.</li>
+    <li>Under Remote Storage: set type Remote, protocol TCP or UDP, target <code>&lt;manager-ip&gt;:514</code>, format CEF, Splunk, or syslog.</li>
+    <li>Attach this logging profile to each virtual server / security policy on both the active and standby WAF nodes.</li>
+  </ul>
+  <p>Verify logs are being generated locally before troubleshooting the network path:</p>
+  <div class="code-block" data-code="tmsh show sys log-config
+tail -f /var/log/asm"><pre>tmsh show sys log-config
+tail -f /var/log/asm</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">6.3 FreeBSD OpenVPN Gateway — Device-Side Configuration</h2>
+  <p>Point syslogd at the Wazuh manager — edit <code>/etc/syslog.conf</code>:</p>
+  <div class="code-block" data-code="*.*   @<manager-ip>:514"><pre>*.*   @&lt;manager-ip&gt;:514</pre><button class="copy-btn">Copy</button></div>
+  <div class="code-block" data-code="sudo service syslogd restart"><pre>sudo service syslogd restart</pre><button class="copy-btn">Copy</button></div>
+  <p>Confirm OpenVPN itself logs through syslog rather than only to a flat file — check the server config (e.g. <code>/usr/local/etc/openvpn/server.conf</code>) includes:</p>
+  <div class="code-block" data-code="syslog openvpn
+verb 3"><pre>syslog openvpn
+verb 3</pre><button class="copy-btn">Copy</button></div>
+  <p>Test forwarding end to end:</p>
+  <div class="code-block" data-code="logger -p auth.info &quot;wazuh-syslog-test from OpenVPN gateway&quot;"><pre>logger -p auth.info "wazuh-syslog-test from OpenVPN gateway"</pre><button class="copy-btn">Copy</button></div>
+  <p>Then, on the Wazuh manager, confirm it arrived:</p>
+  <div class="code-block" data-code="sudo tail -f /var/log/syslog | grep wazuh-syslog-test"><pre>sudo tail -f /var/log/syslog | grep wazuh-syslog-test</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">6.4 Firewall Rules for Agentless Devices</h2>
+  <p>Both agentless devices need outbound UDP/TCP 514 permitted toward the Wazuh manager, and the manager needs inbound 514 open from their IPs specifically (already covered in Section 1.2).</p>
+  <ul>
+    <li><b>F5 BIG-IP</b>: if a self-IP port lockdown or packet filter is configured (Network → Self IPs → Port Lockdown), explicitly allow port 514 outbound to the manager, or set the relevant self-IP's port lockdown to Allow Default plus the syslog port.</li>
+    <li><b>FreeBSD OpenVPN gateway</b>: if pf or ipfw is enabled, add an explicit rule permitting outbound UDP 514 to the manager IP, e.g. (pf): <code>pass out on $ext_if proto udp from any to &lt;manager-ip&gt; port 514</code>.</li>
+    <li><b>Wazuh manager (Ubuntu/UFW)</b>: scope inbound 514/udp to just these device IPs rather than leaving it open broadly, since this is Critical-tier traffic:</li>
+  </ul>
+  <div class="code-block" data-code="sudo ufw allow from <device-ip-1> to any port 514 proto udp
+sudo ufw allow from <device-ip-2> to any port 514 proto udp
+sudo ufw allow from <device-ip-3> to any port 514 proto udp"><pre>sudo ufw allow from <device-ip-1> to any port 514 proto udp
+sudo ufw allow from <device-ip-2> to any port 514 proto udp
+sudo ufw allow from <device-ip-3> to any port 514 proto udp</pre><button class="copy-btn">Copy</button></div>
+
+  <h2 class="sub">6.5 Installing rsyslog as a Forwarder on a Linux Server (if firewall/relay needed)</h2>
+  <p>If a Linux host needs to relay syslog to the Wazuh manager (for example, a jump host relaying for devices that can't reach the manager directly due to firewall segmentation), install and configure rsyslog as follows.</p>
+  <p><b>Ubuntu / Debian:</b></p>
+  <div class="code-block" data-code="sudo apt update
+sudo apt install -y rsyslog"><pre>sudo apt update
+sudo apt install -y rsyslog</pre><button class="copy-btn">Copy</button></div>
+  <p><b>RHEL / Oracle Linux:</b></p>
+  <div class="code-block" data-code="sudo yum install -y rsyslog"><pre>sudo yum install -y rsyslog</pre><button class="copy-btn">Copy</button></div>
+  <p>Enable and start the service:</p>
+  <div class="code-block" data-code="sudo systemctl enable rsyslog
+sudo systemctl start rsyslog"><pre>sudo systemctl enable rsyslog
+sudo systemctl start rsyslog</pre><button class="copy-btn">Copy</button></div>
+  <p>Configure forwarding — create <code>/etc/rsyslog.d/60-wazuh-forward.conf</code>:</p>
+  <div class="code-block" data-code="# UDP forwarding
+*.* @<manager-ip>:514
+
+# or TCP forwarding (more reliable, note the double @)
+*.* @@<manager-ip>:514"><pre><span class="cmt"># UDP forwarding</span>
+*.* @&lt;manager-ip&gt;:514
+
+<span class="cmt"># or TCP forwarding (more reliable, note the double @)</span>
+*.* @@&lt;manager-ip&gt;:514</pre><button class="copy-btn">Copy</button></div>
+  <p>Restart rsyslog to apply:</p>
+  <div class="code-block" data-code="sudo systemctl restart rsyslog"><pre>sudo systemctl restart rsyslog</pre><button class="copy-btn">Copy</button></div>
+  <p>Open the firewall for outbound syslog:</p>
+  <div class="code-block" data-code="# UFW (Ubuntu)
+sudo ufw allow out 514/udp
+
+# firewalld (RHEL / Oracle Linux)
+sudo firewall-cmd --permanent --add-port=514/udp
+sudo firewall-cmd --reload"><pre><span class="cmt"># UFW (Ubuntu)</span>
+sudo ufw allow out 514/udp
+
+<span class="cmt"># firewalld (RHEL / Oracle Linux)</span>
+sudo firewall-cmd --permanent --add-port=514/udp
+sudo firewall-cmd --reload</pre><button class="copy-btn">Copy</button></div>
+  <p>Test the forwarder:</p>
+  <div class="code-block" data-code="logger &quot;wazuh-syslog-test from $(hostname)&quot;"><pre>logger "wazuh-syslog-test from $(hostname)"</pre><button class="copy-btn">Copy</button></div>
+  <p>Then confirm receipt on the Wazuh manager the same way as Section 6.3.</p>
+</section>
+
+<section id="checklist">
+  <h1 class="sec">7. Post-Installation Checklist</h1>
+  <ul>
+    <li>Admin password changed from the auto-generated default.</li>
+    <li>Dashboard reachable over HTTPS from the client's internal network.</li>
+    <li>All target agents show <b>Active</b> status in Agents view.</li>
+    <li>Sysmon installed and reporting on all Windows Server 2022 assets, prioritizing DC01 and both database servers.</li>
+    <li>Syslog test event received from each of the 3 agentless devices, using the device-side steps in Section 6.</li>
+    <li>Firewall rules confirmed open — both inbound on the manager and outbound on each agentless device.</li>
+    <li>Firewall rules confirmed open between the Wazuh server and every asset segment.</li>
+    <li>Admin password and any generated certificates stored securely (password manager / vault), not left on disk.</li>
+  </ul>
+</section>
+
+<footer>Wazuh Installation &amp; Agent Enrollment Runbook &nbsp;|&nbsp; v1.1 &nbsp;|&nbsp; July 2026</footer>
+</div>
+
+<script>
+document.querySelectorAll('.code-block').forEach(function(block){
+  var btn = block.querySelector('.copy-btn');
+  var text = block.getAttribute('data-code');
+  btn.addEventListener('click', function(){
+    function done(ok){
+      btn.textContent = ok ? 'Copied!' : 'Failed';
+      btn.classList.toggle('copied', ok);
+      setTimeout(function(){ btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+    }
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function(){ done(true); }).catch(function(){ fallback(); });
+    } else {
+      fallback();
+    }
+    function fallback(){
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+      } catch(e){ done(false); }
+    }
+  });
+});
+</script>
+</body>
+</html>
